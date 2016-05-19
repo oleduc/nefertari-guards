@@ -6,7 +6,7 @@ README = open(os.path.join(here, 'README.md')).read()
 VERSION = open(os.path.join(here, 'VERSION')).read()
 
 requires = [
-    'nefertari>=0.7.0',
+    'nefertari>=0.6.1',
     'pyramid',
     'sqlalchemy_utils',
 ]
@@ -22,7 +22,6 @@ setup(
         "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.4",
-        "Programming Language :: Python :: 3.5",
         "Framework :: Pyramid",
         "Topic :: Internet :: WWW/HTTP",
         "Topic :: Internet :: WWW/HTTP :: WSGI :: Application",
