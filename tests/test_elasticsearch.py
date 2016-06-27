@@ -162,7 +162,8 @@ class TestESHelpers(object):
             "to_dict": DataProxy.to_dict
         })
 
-        mock_nested_object = mock_nested_type(data={'_type': 'MockNestedType', '_acl': [{'action': 'allow', 'principal': 'someuser', 'permission': 'view'}]})
+        mock_nested_object = mock_nested_type(data={'_type': 'MockNestedType', '_acl': [
+            {'action': 'allow', 'principal': 'someuser', 'permission': 'view'}]})
 
         mock_document = {'_type': 'MockParent', 'nested_type': [mock_nested_object]}
 
