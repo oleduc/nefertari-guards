@@ -144,6 +144,8 @@ class SimpleContext(object):
 
         for acl in acls:
             validated_acl = dict()
+
+            # Use pyramid constants for has_permission checking
             validated_acl['action'] = self.ACTIONS.get(acl['action'], acl['action'])
             validated_acl['permission'] = self.PERMISSIONS.get(acl['permission'], acl['permission'])
             validated_acl['principal'] = self.PRINCIPALS.get(acl['principal'], acl['principal'])

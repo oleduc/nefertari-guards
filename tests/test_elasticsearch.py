@@ -1,6 +1,7 @@
 from mock import patch, call, Mock
 from nefertari.utils import DataProxy
-
+from pyramid.security import AuthorizationAPIMixin
+from pyramid.authorization import ACLAuthorizationPolicy
 from nefertari_guards import elasticsearch as es
 
 
@@ -152,6 +153,92 @@ class TestESHelpers(object):
         request.has_permission.assert_any_call('view', mock_ctx())
         mock_check.assert_called_once_with(request, document)
         assert result == mock_check()
+
+    def test_filter_nested_item_deny_access(self):
+        mock_nested_type = type('mock_type', (DataProxy,), {
+            "__init__": DataProxy.__init__,
+            "__setattr__": DataProxy.__setattr__,
+            "substitutions": list(),
+            "to_dict": DataProxy.to_dict
+        })
+
+        mock_nested_object = mock_nested_type(data={'_type': 'MockNestedType', '_acl': [{'action': 'allow', 'principal': 'someuser', 'permission': 'view'}]})
+
+        mock_document = {'_type': 'MockParent', 'nested_type': [mock_nested_object]}
+
+        mock_authz = type('mock_authz', (ACLAuthorizationPolicy, ), {
+            'effective_principals': lambda x, y: ['someusergroup']
+        })
+
+        mock_registry = type('mock_registry', (object, ), {
+            'queryUtility': lambda x, y: mock_authz()
+        })
+
+        mock_request = type('Request', (AuthorizationAPIMixin,), {
+            'registry': mock_registry()
+        })
+
+        result = es.check_relations_permissions(mock_request(), mock_document)
+        assert result['nested_type'] == []
+
+    def test_filter_nested_item_allow_access(self):
+        mock_nested_type = type('mock_type', (DataProxy,), {
+            "__init__": DataProxy.__init__,
+            "__setattr__": DataProxy.__setattr__,
+            "substitutions": list(),
+            "to_dict": DataProxy.to_dict
+        })
+
+        mock_nested_object = mock_nested_type(data={'_type': 'MockNestedType', '_acl': [
+            {'action': 'allow', 'principal': 'someusergroup', 'permission': 'view'}]})
+
+        mock_document = {'_type': 'MockParent', 'nested_type': [mock_nested_object]}
+
+        mock_authz = type('mock_authz', (ACLAuthorizationPolicy,), {
+            'effective_principals': lambda x, y: ['someusergroup']
+        })
+
+        mock_registry = type('mock_registry', (object,), {
+            'queryUtility': lambda x, y: mock_authz()
+        })
+
+        mock_request = type('Request', (AuthorizationAPIMixin,), {
+            'registry': mock_registry()
+        })
+
+        result = es.check_relations_permissions(mock_request(), mock_document)
+        assert result['nested_type'] == [mock_nested_object]
+
+    def test_filter_nested_item_mixed_access(self):
+        mock_nested_type = type('mock_type', (DataProxy,), {
+            "__init__": DataProxy.__init__,
+            "__setattr__": DataProxy.__setattr__,
+            "substitutions": list(),
+            "to_dict": DataProxy.to_dict
+        })
+
+        mock_nested_object_1 = mock_nested_type(data={'_type': 'MockNestedType', '_acl': [
+            {'action': 'allow', 'principal': 'someuser', 'permission': 'view'}]})
+
+        mock_nested_object_2 = mock_nested_type(data={'_type': 'MockNestedType', '_acl': [
+            {'action': 'allow', 'principal': 'someusergroup', 'permission': 'view'}]})
+
+        mock_document = {'_type': 'MockParent', 'nested_type': [mock_nested_object_1, mock_nested_object_2]}
+
+        mock_authz = type('mock_authz', (ACLAuthorizationPolicy,), {
+            'effective_principals': lambda x, y: ['someusergroup']
+        })
+
+        mock_registry = type('mock_registry', (object,), {
+            'queryUtility': lambda x, y: mock_authz()
+        })
+
+        mock_request = type('Request', (AuthorizationAPIMixin,), {
+            'registry': mock_registry()
+        })
+
+        result = es.check_relations_permissions(mock_request(), mock_document)
+        assert result['nested_type'] == [mock_nested_object_2]
 
 
 class TestACLFilterES(object):
