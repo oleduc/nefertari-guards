@@ -1,7 +1,8 @@
 from nefertari.elasticsearch import ES, _ESDocs
 from nefertari.utils import dictset, DataProxy, is_document
 from nefertari.resource import PERMISSIONS
-
+from pyramid.security import (
+    Allow, Deny, Everyone, Authenticated, ALL_PERMISSIONS)
 from nefertari_guards import engine
 
 
@@ -112,18 +113,57 @@ def check_relations_permissions(request, document):
 
     for key, value in data.items():
         if isinstance(value, (list, tuple)):
-            checked = [_check_permissions(request, val) for val in value]
+            checked = [_check_relations_permission(request, val) for val in value]
             checked = [val for val in checked if val is not None]
         else:
-            checked = _check_permissions(request, value)
+            checked = _check_relations_permission(request, value)
         data[key] = checked
     return document
 
 
 class SimpleContext(object):
+
     """ Simple context class used in _check_permissions. """
+
+    ACTIONS = {
+       'allow': Allow, 'deny': Deny,
+    }
+    PRINCIPALS = {
+           'everyone': Everyone,
+           'authenticated': Authenticated,
+    }
+    PERMISSIONS = {
+           'all': ALL_PERMISSIONS,
+    }
+
     def __init__(self, acl):
-        self.__acl__ = acl
+        self.acl = self._validate_acl(acl)
+
+    def _validate_acl(self, acls):
+        validated_acls = []
+
+        for acl in acls:
+            validated_acl = dict()
+
+            # Use pyramid constants for has_permission checking
+            validated_acl['action'] = self.ACTIONS.get(acl['action'], acl['action'])
+            validated_acl['permission'] = self.PERMISSIONS.get(acl['permission'], acl['permission'])
+            validated_acl['principal'] = self.PRINCIPALS.get(acl['principal'], acl['principal'])
+            validated_acls.append(validated_acl)
+        return validated_acls
+
+    def __acl__(self):
+        return [(item['action'], item['principal'], item['permission']) for item in self.acl]
+
+
+def _check_relations_permission(request, document):
+    if hasattr(document, '_type'):
+        document_dict = document.to_dict()
+        acl = document_dict.get('_acl', [])
+        context = SimpleContext(acl)
+        if not request.has_permission('view', context):
+            return None
+    return _check_permissions(request, document)
 
 
 def _check_permissions(request, document):
