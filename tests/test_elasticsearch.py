@@ -154,7 +154,13 @@ class TestESHelpers(object):
         mock_check.assert_called_once_with(request, document)
         assert result == mock_check()
 
-    def test_filter_nested_item_deny_access(self):
+    @patch('nefertari_guards.elasticsearch.engine')
+    def test_filter_nested_item_deny_access(self, mock_engine):
+
+        mock_engine.ACLField.objectify_acl.return_value = [
+            ['Allow', 'someuser', 'view']
+        ]
+
         mock_nested_type = type('mock_type', (DataProxy,), {
             "__init__": DataProxy.__init__,
             "__setattr__": DataProxy.__setattr__,
@@ -182,7 +188,14 @@ class TestESHelpers(object):
         result = es.check_relations_permissions(mock_request(), mock_document)
         assert result['nested_type'] == []
 
-    def test_filter_nested_item_allow_access(self):
+    @patch('nefertari_guards.elasticsearch.engine')
+    def test_filter_nested_item_allow_access(self, mock_engine):
+
+        def objectify_acl(acls):
+            return [(acl['action'].capitalize(), acl['principal'], acl['permission']) for acl in acls]
+
+        mock_engine.ACLField.objectify_acl = objectify_acl
+
         mock_nested_type = type('mock_type', (DataProxy,), {
             "__init__": DataProxy.__init__,
             "__setattr__": DataProxy.__setattr__,
@@ -210,7 +223,14 @@ class TestESHelpers(object):
         result = es.check_relations_permissions(mock_request(), mock_document)
         assert result['nested_type'] == [mock_nested_object]
 
-    def test_filter_nested_item_mixed_access(self):
+    @patch('nefertari_guards.elasticsearch.engine')
+    def test_filter_nested_item_mixed_access(self, mock_engine):
+
+        def objectify_acl(acls):
+            return [(acl['action'].capitalize(), acl['principal'], acl['permission']) for acl in acls]
+
+        mock_engine.ACLField.objectify_acl = objectify_acl
+
         mock_nested_type = type('mock_type', (DataProxy,), {
             "__init__": DataProxy.__init__,
             "__setattr__": DataProxy.__setattr__,
