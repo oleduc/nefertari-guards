@@ -125,41 +125,17 @@ class SimpleContext(object):
 
     """ Simple context class used in _check_permissions. """
 
-    ACTIONS = {
-       'allow': Allow, 'deny': Deny,
-    }
-    PRINCIPALS = {
-           'everyone': Everyone,
-           'authenticated': Authenticated,
-    }
-    PERMISSIONS = {
-           'all': ALL_PERMISSIONS,
-    }
-
     def __init__(self, acl):
-        self.acl = self._validate_acl(acl)
-
-    def _validate_acl(self, acls):
-        validated_acls = []
-
-        for acl in acls:
-            validated_acl = dict()
-
-            # Use pyramid constants for has_permission checking
-            validated_acl['action'] = self.ACTIONS.get(acl['action'], acl['action'])
-            validated_acl['permission'] = self.PERMISSIONS.get(acl['permission'], acl['permission'])
-            validated_acl['principal'] = self.PRINCIPALS.get(acl['principal'], acl['principal'])
-            validated_acls.append(validated_acl)
-        return validated_acls
+        self.acl = acl
 
     def __acl__(self):
-        return [(item['action'], item['principal'], item['permission']) for item in self.acl]
+        return self.acl
 
 
 def _check_relations_permission(request, document):
     if hasattr(document, '_type'):
         document_dict = document.to_dict()
-        acl = document_dict.get('_acl', [])
+        acl = engine.ACLField.objectify_acl(document_dict.get('_acl', []))
         context = SimpleContext(acl)
         if not request.has_permission('view', context):
             return None
