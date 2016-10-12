@@ -1,7 +1,8 @@
 from nefertari.elasticsearch import ES, _ESDocs
 from nefertari.utils import dictset, DataProxy, is_document
 from nefertari.resource import PERMISSIONS
-
+from pyramid.security import (
+    Allow, Deny, Everyone, Authenticated, ALL_PERMISSIONS)
 from nefertari_guards import engine
 
 
@@ -112,18 +113,33 @@ def check_relations_permissions(request, document):
 
     for key, value in data.items():
         if isinstance(value, (list, tuple)):
-            checked = [_check_permissions(request, val) for val in value]
+            checked = [_check_relations_permission(request, val) for val in value]
             checked = [val for val in checked if val is not None]
         else:
-            checked = _check_permissions(request, value)
+            checked = _check_relations_permission(request, value)
         data[key] = checked
     return document
 
 
 class SimpleContext(object):
+
     """ Simple context class used in _check_permissions. """
+
     def __init__(self, acl):
-        self.__acl__ = acl
+        self.acl = acl
+
+    def __acl__(self):
+        return self.acl
+
+
+def _check_relations_permission(request, document):
+    if hasattr(document, '_type'):
+        document_dict = document.to_dict()
+        acl = engine.ACLField.objectify_acl(document_dict.get('_acl', []))
+        context = SimpleContext(acl)
+        if not request.has_permission('view', context):
+            return None
+    return _check_permissions(request, document)
 
 
 def _check_permissions(request, document):
