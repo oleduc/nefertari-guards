@@ -5,6 +5,13 @@ from pyramid.authorization import ACLAuthorizationPolicy
 from nefertari_guards import elasticsearch as es
 
 
+class MockEngine(Mock):
+    def get_document_cls(self, name):
+        mock_document = Mock()
+        mock_document.get_es_mapping = lambda: ({name: {'properties': {}}}, None)
+        return mock_document
+
+
 class TestESHelpers(object):
 
     @patch('nefertari_guards.elasticsearch.engine')
@@ -265,6 +272,7 @@ class TestESHelpers(object):
 class TestACLFilterES(object):
 
     @patch('nefertari_guards.elasticsearch.build_acl_query')
+    @patch('nefertari.elasticsearch.engine', MockEngine())
     def test_build_search_params(self, mock_build):
         obj = es.ACLFilterES('Foo', 'foondex', chunk_size=10)
         obj._req_permission = 'view'
@@ -273,16 +281,14 @@ class TestACLFilterES(object):
             {'foo': 1, '_limit': 10, '_principals': [3, 4]})
         assert sorted(params.keys()) == sorted([
             'body', 'doc_type', 'from_', 'size', 'index'])
-        assert params['body'] == {
-            'query': {
-                'bool': {
-                    'must': [
-                        'zoo',
-                        {'query_string': {'query': 'foo:1'}}
-                    ]
-                }
-            }
-        }
+        assert params['body'] == {'query': {
+            'bool': {
+                'must':
+                    ['zoo', {'bool': {
+                        'must': [
+                            {'query_string': {'query': 'foo:1'}}
+                        ]}}]}}}
+
         assert params['index'] == 'foondex'
         assert params['doc_type'] == 'Foo'
         mock_build.assert_called_once_with([3, 4], 'view')
